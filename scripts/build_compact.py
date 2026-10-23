@@ -87,7 +87,7 @@ for tid,l in st.items():
         c=cl[sid]
         if seq and seq[-1][0]==c: continue
         seq.append((c,tm,raw[sid][3]))
-    key=(r,h,tuple(x[0] for x in seq))
+    key=(r,h,tuple(x[0] for x in seq),tuple(round(x[1]-seq[0][1]) for x in seq))  # split by exact running-time profile
     p=pats.setdefault(key,{'r':r,'h':h,'s':[x[0] for x in seq],'offs':[],'p':[L(x[2]) for x in seq],'d':[]})
     p['offs'].append([x[1]-seq[0][1] for x in seq]); p['d'].append(round(seq[0][1]))
 P=[]
@@ -95,7 +95,7 @@ for p in pats.values():
     o=[round(statistics.median(c)) for c in zip(*p.pop('offs'))]
     p['o']=o; p['d']=sorted(set(p['d']))
     if not any(p['p']): p.pop('p')
-    P.append({k:p[k] for k in ('r','h','s','o','p','d') if k in p})
+    P.append({k:p[k] for k in ('r','h','s','o','d') if k in p})
 json.dump({'keys':KEYS,'members':[sorted(g) for g in C]},open(OUT+'_keys.json' if OUT!='compact' else 'stop_keys.json','w'))
 out={'stops':S,'labels':LAB,'pats':P}
 s=json.dumps(out,separators=(',',':'),ensure_ascii=False)
