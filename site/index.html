@@ -1121,9 +1121,9 @@ tr.is-highlight > :last-child { box-shadow: 12px 0 var(--fill-tertiary); }
 
         /* ---------- search ---------- */
         // trip ends: bus stop s, reached on foot from place o over m metres (o === s means no walk)
-        var NAMEGROUP = new Map(), NEAR_M = 400, NEARC = new Map();
+        var NAMEGROUP = new Map(), NEAR_M = 500, NEARC = new Map();
         LOWER.forEach(function (n, i) { var g = NAMEGROUP.get(n); if (g) g.push(i); else NAMEGROUP.set(n, [i]); });
-        // the stops in G, plus every other bus stop within 400 m of one of them
+        // the stops in G, plus every other bus stop within 500 m of one of them
         function nearSet(G) {
           var key = G.join(","), hit = NEARC.get(key);
           if (hit) return hit;
@@ -1371,7 +1371,7 @@ tr.is-highlight > :last-child { box-shadow: 12px 0 var(--fill-tertiary); }
           return { legs: legs, dep: legs[0].dep, arr: legs[legs.length - 1].arr, fare: fare, more: more || [], metro: ms.length > 0, bus: legs.some(function (l) { return l.k === "bus"; }) };
         }
         // bus only: a metro station end becomes the bus stops on its walk links
-        // bus only: a bus stop end is it plus the stops within 400 m; a metro station end is the bus stops on its walk links
+        // bus only: a bus stop end is it plus the stops within 500 m; a metro station end is the bus stops on its walk links
         function busOnly(F, T, t, FS, TS) {
           var starts = F >= N ? WALK[F - N].map(function (w) { return { s: w[0], m: w[1], o: F }; }) : FS;
           var ends = T >= N ? WALK[T - N].map(function (w) { return { s: w[0], m: w[1], o: T }; }) : TS;
@@ -1827,4 +1827,4 @@ tr.is-highlight > :last-child { box-shadow: 12px 0 var(--fill-tertiary); }
     </script>
   
 
-<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a4f14c902f5e6c17',t:'MTc5Mjc2NDM1Mg=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body></html>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a4f15301fafa9694',t:'MTc5Mjc2NDYxNg=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body></html>
