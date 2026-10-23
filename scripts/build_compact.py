@@ -72,6 +72,7 @@ for tid,l in st.items():
     l.sort(); t=trips[tid]; tsn=t['trip_short_name']
     if t['route_id'] in RT and RT[t['route_id']].get('route_short_name'):
         rr=RT[t['route_id']]; r=rr['route_short_name']; ln=rr['route_long_name']
+        if r==t['route_id'] and tsn: r=re.split(r'[_ ]',tsn.strip())[0]
         ln=ln.split(' - ',1)[1] if ' - ' in ln else ln
         parts=re.split(r'\s+to\s+',ln,maxsplit=1,flags=re.I)
         h=' → '.join(tidy(TW.sub('',p)) for p in parts)
