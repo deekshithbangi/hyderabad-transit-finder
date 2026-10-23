@@ -797,6 +797,15 @@ tr.is-highlight > :last-child { box-shadow: 12px 0 var(--fill-tertiary); }
       .x-tl li.is-metro.is-end .x-tl__n::before, .x-tl li.is-metro.is-change .x-tl__n::before { background: var(--x-line); }
       .x-hint { font: var(--type-small); color: var(--text-secondary); }
       .x-near .x-hint { white-space: normal; }
+      .x-field input#from { padding-right: 112px; }
+      .x-loc { position: absolute; right: 60px; top: 8px; z-index: 3; width: var(--tap); height: var(--tap); border-radius: 50%; border: 0; background: transparent; color: var(--text-secondary); cursor: pointer; display: grid; place-items: center; }
+      .x-loc:hover { box-shadow: inset 0 0 0 100px var(--hover-wash); color: var(--text-primary); }
+      .x-loc[aria-busy="true"] { color: var(--fill-system-green); }
+      .x-loc[aria-busy="true"] svg { animation: x-pulse 1s var(--ease-out) infinite alternate; }
+      .x-loc.is-on { color: var(--fill-system-green); }
+      @keyframes x-pulse { to { opacity: 0.35; } }
+      @media (prefers-reduced-motion: reduce) { .x-loc[aria-busy="true"] svg { animation: none; } }
+      .x-lochint { padding: 0 4px; margin-top: -4px; }
       [hidden] { display: none !important; }
       @media (max-width: 380px) { .x-facts { grid-template-columns: 1fr 1fr; } .x-badge { min-width: 52px; } }
     </style>
@@ -824,6 +833,7 @@ tr.is-highlight > :last-child { box-shadow: 12px 0 var(--fill-tertiary); }
                 <div class="x-field">
                   <label for="from">From</label>
                   <input id="from" type="text" placeholder="Bus stop or metro station" role="combobox" aria-expanded="false" aria-controls="from-sug" aria-autocomplete="list"/>
+                  <button class="x-loc" type="button" id="locate" aria-label="Use my location" title="Use my location"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="5.5" stroke="currentColor" stroke-width="1.6"></circle><circle cx="10" cy="10" r="1.8" fill="currentColor"></circle><path d="M10 1.5v3M10 15.5v3M1.5 10h3M15.5 10h3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path></svg></button>
                   <ul class="x-sug" id="from-sug" role="listbox" hidden=""></ul>
                 </div>
                 <button class="x-swap" type="button" id="swap" aria-label="Swap From and To">⇅</button>
@@ -833,6 +843,7 @@ tr.is-highlight > :last-child { box-shadow: 12px 0 var(--fill-tertiary); }
                   <ul class="x-sug" id="to-sug" role="listbox" hidden=""></ul>
                 </div>
               </div>
+              <p class="x-hint x-lochint" id="from-hint" role="status" hidden=""></p>
               <div class="x-row">
                 <button class="x-chip" type="button" id="leave-chip" aria-expanded="false"><span class="x-clock"></span><span id="leave-text">Leave now</span></button>
                 <button class="x-chip" type="button" id="near-btn">Nearby stops</button>
@@ -1098,7 +1109,9 @@ tr.is-highlight > :last-child { box-shadow: 12px 0 var(--fill-tertiary); }
         var fmt = function (m) { m = ((Math.round(m) % 1440) + 1440) % 1440; return pad(Math.floor(m / 60)) + ":" + pad(m % 60); };
         var nowMin = function () { var d = new Date(); return d.getHours() * 60 + d.getMinutes(); };
         var dur = function (m) { m = Math.round(m); return m < 60 ? m + " min" : Math.floor(m / 60) + " h" + (m % 60 ? " " + (m % 60) + " min" : ""); };
-        var name = function (i) { return i < N ? STOPS[i][0] : MST[i - N][0]; };
+        // the virtual origin: the user's GPS position, set by the locate button
+        var ORIG = -2, HERE_M = 800;
+        var name = function (i) { return i === ORIG ? "Current location" : i < N ? STOPS[i][0] : MST[i - N][0]; };
         var lineStyle = function (c) { return ' style="--x-line:' + esc(c) + '"'; };
         function mpill(g) {
           var cs = MCOL[g - N];
@@ -1316,6 +1329,24 @@ tr.is-highlight > :last-child { box-shadow: 12px 0 var(--fill-tertiary); }
         function mixed(F, T, t, FS, TS) {
           var cands = [], starts = [];
           if (F >= N) starts.push({ S: F, arr: t, legs: [] });
+          else if (F === ORIG) {
+            // from GPS: bus to a stop then walk to a station, or walk straight to a station within 800 m
+            var reach0 = busReach(FS, t), best0 = new Map();
+            WALK.forEach(function (ls, j) {
+              var S = j + N;
+              ls.forEach(function (w) {
+                var base = reach0.get(w[0]);
+                if (!base) return;
+                var a = base.arr + walkMin(w[1]), cur = best0.get(S);
+                if (!cur || a < cur.arr) best0.set(S, { S: S, arr: a, legs: base.legs.concat([walkLeg(w[1], w[0], S)]) });
+              });
+            });
+            state.here.met.forEach(function (w) {
+              var a = t + walkMin(w.m), cur = best0.get(w.S);
+              if (!cur || a <= cur.arr) best0.set(w.S, { S: w.S, arr: a, legs: [walkLeg(w.m, ORIG, w.S)] });
+            });
+            starts = Array.from(best0.values());
+          }
           else {
             var reach = busReach(FS, t), best = new Map(), at0 = new Map();
             FS.forEach(function (st) { if (st.o === st.s) at0.set(st.s, { arr: t, legs: [] }); });
@@ -1384,7 +1415,8 @@ tr.is-highlight > :last-child { box-shadow: 12px 0 var(--fill-tertiary); }
         // metro only: walk to a station, ride (direct or one interchange), walk on
         function metroOnly(F, T, t, FG, TG) {
           var flat = function (a) { return [].concat.apply([], a); };
-          var starts = F >= N ? SAME[F - N].map(function (g) { return { S: g, arr: t, legs: [] }; })
+          var starts = F === ORIG ? state.here.met3.map(function (w) { return { S: w.S, arr: t + walkMin(w.m), legs: [walkLeg(w.m, ORIG, w.S)] }; })
+            : F >= N ? SAME[F - N].map(function (g) { return { S: g, arr: t, legs: [] }; })
             : flat(FG.map(function (f) { return WB[f].map(function (w) { return { S: w[0], arr: t + walkMin(w[1]), legs: [walkLeg(w[1], f, w[0])] }; }); }));
           var goals = T >= N ? SAME[T - N].map(function (g) { return { S: g, post: [] }; })
             : flat(TG.map(function (z) { return WB[z].map(function (w) { return { S: w[0], post: [walkLeg(w[1], w[0], z)] }; }); }));
@@ -1436,7 +1468,7 @@ tr.is-highlight > :last-child { box-shadow: 12px 0 var(--fill-tertiary); }
           var L = tr.legs, rows = [], last = L.length - 1, single = L.length === 1 && L[0].k !== "walk";
           if (L[0].k === "walk") rows.push({ name: name(L[0].a), time: L[0].dep, cls: "is-end" });
           L.forEach(function (l, i) {
-            if (l.k === "walk") { rows.push({ name: "Walk " + l.min + " min · " + l.m + " m to " + name(l.z), time: l.dep, cls: "is-change" }); return; }
+            if (l.k === "walk") { rows.push({ name: l.a === ORIG ? "Walk " + l.min + " min to " + name(l.z) : "Walk " + l.min + " min · " + l.m + " m to " + name(l.z), time: l.dep, cls: "is-change" }); return; }
             var prev = L[i - 1];
             if (prev && prev.k !== "walk") rows.push({ name: "Change · wait " + dur(l.dep - prev.arr), time: null, cls: "is-change" });
             if (!single) rows.push({ name: (l.k === "metro" ? l.p.c + " Line" : "Bus " + l.p.c) + " towards " + toward(l.p.h), time: null, cls: "is-change", line: l.k === "metro" ? l.p.color : null });
@@ -1447,7 +1479,7 @@ tr.is-highlight > :last-child { box-shadow: 12px 0 var(--fill-tertiary); }
         }
 
         /* ---------- state ---------- */
-        var state = { leave: null, recent: [], last: null, mode: "both" };
+        var state = { leave: null, recent: [], last: null, mode: "both", here: null };
         var tripT = function () { return state.leave == null ? nowMin() : state.leave; };
 
         function emptyState(title, text) {
@@ -1455,8 +1487,10 @@ tr.is-highlight > :last-child { box-shadow: 12px 0 var(--fill-tertiary); }
         }
 
         function plan(F, T, t, mode, FG, TG) {
-          FG = F < N ? FG || [F] : null; TG = T < N ? TG || [T] : null;
-          var FS = FG && nearSet(FG), TS = TG && nearSet(TG), trips = [];
+          var GPS = F === ORIG && state.here;
+          FG = !GPS && F < N ? FG || [F] : null; TG = T < N ? TG || [T] : null;
+          var FS = GPS ? state.here.bus : FG && nearSet(FG), TS = TG && nearSet(TG), trips = [];
+          if (F === ORIG && !GPS) return [];
           if (mode === "bus") trips = busOnly(F, T, t, FS, TS);
           else if (mode === "metro") trips = metroOnly(F, T, t, FG, TG);
           else if (F < N && T < N) trips = busOnly(F, T, t, FS, TS);
@@ -1572,6 +1606,7 @@ tr.is-highlight > :last-child { box-shadow: 12px 0 var(--fill-tertiary); }
         function setStop(input, idx) {
           input.value = name(idx);
           input.dataset.idx = idx;
+          if (input.id === "from" && idx !== ORIG) clearLoc();
         }
         function ac(input, list, onPick) {
           var items = [], active = -1;
@@ -1609,23 +1644,31 @@ tr.is-highlight > :last-child { box-shadow: 12px 0 var(--fill-tertiary); }
         ac(fromI, $("from-sug"), function () { if (!toI.dataset.idx) toI.focus(); else tryAuto(); });
         ac(toI, $("to-sug"), function () { toI.blur(); tryAuto(); });
 
-        $("trip-form").addEventListener("submit", function (e) {
-          e.preventDefault();
+        $("trip-form").addEventListener("submit", function (e) { e.preventDefault(); submitTrip(); });
+        function submitTrip() {
           var fg = fromI.dataset.idx ? null : typedGroup(fromI.value), tg = toI.dataset.idx ? null : typedGroup(toI.value);
           var fv = fromI.value, tv = toI.value;
           var F = resolve(fromI), T = resolve(toI), FG = nameGroup(fg, F), TG = nameGroup(tg, T);
           // a typed name that covers several stops stays as typed, not swapped for one of them
           if (FG) { fromI.value = fv; delete fromI.dataset.idx; }
           if (TG) { toI.value = tv; delete toI.dataset.idx; }
-          if (F < 0 || T < 0) {
+          if (F === ORIG && !state.here) F = -1;
+          if (F === -1 || T < 0) {
             $("results").innerHTML = emptyState("Which stops?", (F < 0 ? "We couldn't match the From stop. " : "") + (T < 0 ? "We couldn't match the To stop. " : "") + "Start typing a stop name and pick one from the list.");
             return;
           }
           fromI.blur(); toI.blur();
           runSearch(F, T, true, FG, TG);
-        });
+        }
         $("swap").addEventListener("click", function () {
           var v = fromI.value, d = fromI.dataset.idx;
+          // Current location can only be a start: the To stop moves up and To is left to fill
+          if (+d === ORIG) {
+            fromI.value = toI.value;
+            if (toI.dataset.idx) setStop(fromI, +toI.dataset.idx); else { delete fromI.dataset.idx; clearLoc(); }
+            toI.value = ""; delete toI.dataset.idx; toI.focus();
+            return;
+          }
           fromI.value = toI.value;
           if (toI.dataset.idx) fromI.dataset.idx = toI.dataset.idx; else delete fromI.dataset.idx;
           toI.value = v;
@@ -1685,9 +1728,57 @@ tr.is-highlight > :last-child { box-shadow: 12px 0 var(--fill-tertiary); }
           var b = e.target.closest("button");
           if (!b) return;
           var r = state.recent[+b.dataset.k];
-          setStop(fromI, r.F); setStop(toI, r.T);
+          setStop(toI, r.T);
+          // a trip from Current location finds the user again before searching
+          if (r.F === ORIG) { locate(function () { runSearch(ORIG, r.T, true, null, r.TG); }); return; }
+          setStop(fromI, r.F);
           runSearch(r.F, r.T, true, r.FG, r.TG);
         });
+
+        /* ---------- locate: Current location as From ---------- */
+        var locBtn = $("locate"), locHint = $("from-hint"), PH = fromI.placeholder, locSeq = 0;
+        function distText(m) { return m < 1000 ? Math.round(m / 10) * 10 + " m" : (m / 1000).toFixed(1) + " km"; }
+        function hint(text) { locHint.textContent = text || ""; locHint.hidden = !text; }
+        function clearLoc() {
+          locSeq++;
+          fromI.placeholder = PH; hint("");
+          locBtn.removeAttribute("aria-busy"); locBtn.classList.remove("is-on");
+        }
+        // walk starts from a position: bus stops and metro stations within 800 m, or the 3 nearest
+        function hereStarts(la, lo) {
+          var bus = STOPS.map(function (s, i) { return { s: i, m: Math.round(metres(la, lo, s[1], s[2])), o: ORIG }; }).sort(function (a, b) { return a.m - b.m; });
+          var met = MST.map(function (s, j) { return { S: j + N, m: Math.round(metres(la, lo, s[1], s[2])) }; }).sort(function (a, b) { return a.m - b.m; });
+          var inB = bus.filter(function (e) { return e.m <= HERE_M; }), inM = met.filter(function (e) { return e.m <= HERE_M; });
+          var nb = bus[0], nm = met[0], near = !nm || (nb && nb.m <= nm.m) ? { i: nb.s, m: nb.m } : { i: nm.S, m: nm.m };
+          return { la: la, lo: lo, bus: inB.length ? inB : bus.slice(0, 3), met: inM, met3: inM.length ? inM : met.slice(0, 3).filter(function (e) { return e.m <= 2000; }), near: near };
+        }
+        function locate(then) {
+          var seq = ++locSeq;
+          fromI.value = ""; delete fromI.dataset.idx;
+          locBtn.classList.remove("is-on");
+          if (!navigator.geolocation) { hint("Couldn't get your location. Try again or type a stop."); return; }
+          fromI.placeholder = "Finding you…"; hint("Finding you…");
+          locBtn.setAttribute("aria-busy", "true");
+          navigator.geolocation.getCurrentPosition(function (pos) {
+            if (seq !== locSeq) return;
+            locBtn.removeAttribute("aria-busy"); locBtn.classList.add("is-on");
+            state.here = hereStarts(pos.coords.latitude, pos.coords.longitude);
+            fromI.placeholder = PH;
+            fromI.value = name(ORIG); fromI.dataset.idx = ORIG;
+            hint("nearest: " + name(state.here.near.i) + ", " + distText(state.here.near.m));
+            if (then) then();
+            else if (toI.value.trim()) submitTrip();
+            else toI.focus();
+          }, function (err) {
+            if (seq !== locSeq) return;
+            locBtn.removeAttribute("aria-busy");
+            fromI.placeholder = PH;
+            hint(err && err.code === 1 ? "Location is off. Allow it for this site in your browser settings, or type a stop." : "Couldn't get your location. Try again or type a stop.");
+          }, { enableHighAccuracy: true, timeout: 10000 });
+        }
+        locBtn.addEventListener("click", function () { locate(); });
+        // typing in From leaves Current location mode
+        fromI.addEventListener("input", function () { if (locHint.textContent || fromI.placeholder !== PH) clearLoc(); });
 
         /* ---------- nearby ---------- */
         function metres(la1, lo1, la2, lo2) {
@@ -1827,4 +1918,4 @@ tr.is-highlight > :last-child { box-shadow: 12px 0 var(--fill-tertiary); }
     </script>
   
 
-<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a4f15301fafa9694',t:'MTc5Mjc2NDYxNg=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body></html>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a4f15d3b4ca0dab7',t:'MTc5Mjc2NTAzNA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body></html>
