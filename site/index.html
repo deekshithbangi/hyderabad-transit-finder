@@ -1739,6 +1739,14 @@ tr.is-highlight > :last-child { box-shadow: 12px 0 var(--fill-tertiary); }
         var locBtn = $("locate"), locHint = $("from-hint"), PH = fromI.placeholder, locSeq = 0;
         function distText(m) { return m < 1000 ? Math.round(m / 10) * 10 + " m" : (m / 1000).toFixed(1) + " km"; }
         function hint(text) { locHint.textContent = text || ""; locHint.hidden = !text; }
+        // sandboxed preview frames (opaque origin) block geolocation without a prompt
+        var GEO_BLOCK_HTML = 'Location isn\'t allowed in this preview. <a class="link" href="https://deekshithbangi.github.io/hyderabad-transit-finder/" target="_blank" rel="noopener">Open the full site</a> to use GPS.';
+        function geoBlocked() {
+          if (window.origin === "null" || window.isSecureContext === false) return true;
+          try { var ls = window.localStorage; if (!ls) return true; } catch (e) { return true; }
+          return false;
+        }
+        function blockHint() { locHint.innerHTML = GEO_BLOCK_HTML; locHint.hidden = false; }
         function clearLoc() {
           locSeq++;
           fromI.placeholder = PH; hint("");
@@ -1757,8 +1765,10 @@ tr.is-highlight > :last-child { box-shadow: 12px 0 var(--fill-tertiary); }
           fromI.value = ""; delete fromI.dataset.idx;
           locBtn.classList.remove("is-on");
           if (!navigator.geolocation) { hint("Couldn't get your location. Try again or type a stop."); return; }
+          if (geoBlocked()) { blockHint(); return; }
           fromI.placeholder = "Finding you…"; hint("Finding you…");
           locBtn.setAttribute("aria-busy", "true");
+          var t0 = Date.now();
           navigator.geolocation.getCurrentPosition(function (pos) {
             if (seq !== locSeq) return;
             locBtn.removeAttribute("aria-busy"); locBtn.classList.add("is-on");
@@ -1773,6 +1783,7 @@ tr.is-highlight > :last-child { box-shadow: 12px 0 var(--fill-tertiary); }
             if (seq !== locSeq) return;
             locBtn.removeAttribute("aria-busy");
             fromI.placeholder = PH;
+            if (err && err.code === 1 && Date.now() - t0 < 300) { blockHint(); return; }
             hint(err && err.code === 1 ? "Location is off. Allow it for this site in your browser settings, or type a stop." : "Couldn't get your location. Try again or type a stop.");
           }, { enableHighAccuracy: true, timeout: 10000 });
         }
@@ -1791,7 +1802,9 @@ tr.is-highlight > :last-child { box-shadow: 12px 0 var(--fill-tertiary); }
           if (!panel.hidden && panel.dataset.done) { panel.hidden = true; panel.dataset.done = ""; return; }
           panel.hidden = false;
           if (!navigator.geolocation) { panel.innerHTML = "<p>Location isn't available on this device. Type a stop name instead.</p>"; return; }
+          if (geoBlocked()) { panel.dataset.done = "1"; panel.innerHTML = "<p>" + GEO_BLOCK_HTML + "</p>"; return; }
           panel.innerHTML = "<p>Finding stops near you…</p>";
+          var t0 = Date.now();
           navigator.geolocation.getCurrentPosition(function (pos) {
             var la = pos.coords.latitude, lo = pos.coords.longitude;
             var near = STOPS.map(function (s, i) { return [metres(la, lo, s[1], s[2]), i]; }).sort(function (a, b) { return a[0] - b[0]; }).slice(0, 6);
@@ -1802,6 +1815,7 @@ tr.is-highlight > :last-child { box-shadow: 12px 0 var(--fill-tertiary); }
             }).join("");
           }, function (err) {
             panel.dataset.done = "1";
+            if (err.code === 1 && Date.now() - t0 < 300) { panel.innerHTML = "<p>" + GEO_BLOCK_HTML + "</p>"; return; }
             panel.innerHTML = err.code === 1
               ? "<p>Location access is off. Allow it in your browser settings, or just type a stop name.</p>"
               : "<p>We couldn't get your location right now. Try again, or type a stop name.</p>";
@@ -1918,4 +1932,4 @@ tr.is-highlight > :last-child { box-shadow: 12px 0 var(--fill-tertiary); }
     </script>
   
 
-<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a4f15d3b4ca0dab7',t:'MTc5Mjc2NTAzNA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body></html>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a4f1687e8e4bff06',t:'MTc5Mjc2NTQ5Ng=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body></html>
