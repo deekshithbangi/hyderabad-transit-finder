@@ -11,10 +11,9 @@ An unofficial, open-data trip planner for Hyderabad: TGSRTC city buses + Hyderab
 |---|---|
 | `site/index.html` | The current Page (single self-contained file, data inlined) |
 | `scripts/build_compact.py` | Builds compact bus data from a TGSRTC GTFS folder |
-| `data/compact.json` | Bus data the Page uses now (Feb 2026 feed): cleaned stops, route patterns, departures |
-| `data/compact_new.json` | Test build from the Sep 2026 feed (not live on the Page yet) |
+| `data/compact.json` | Bus data the Page uses (TGSRTC GTFS feed 20260901, Sep 2026): 3,295 cleaned stops, 4,117 route patterns, departures |
 | `data/metro.json` | Metro stations, patterns, fares, and walk links to bus stops |
-| `data/stop_keys.json`, `data/compact_new_keys.json` | Stable key per merged stop (smallest raw stop_id) for each build |
+| `data/stop_keys.json` | Stable key per merged stop (smallest raw stop_id) |
 | `data/hmrl_gtfs_2026-10-05.zip` | HMRL metro GTFS source |
 | `data/stop_names.csv` | Editable stop-name sheet (fill `new_name`, keep `key`) |
 
