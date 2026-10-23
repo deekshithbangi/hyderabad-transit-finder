@@ -1,0 +1,5 @@
+data/gtfs/
+data/hmrl/
+data/new/
+*.gz
+files/uploads/
