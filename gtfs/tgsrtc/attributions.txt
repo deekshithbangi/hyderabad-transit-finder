@@ -1,0 +1,3 @@
+attribution_id,organization_name,is_producer,is_operator,is_authority,attribution_url
+tgsrtc,Telangana State Road Transport Corporation,1,1,1,https://tgsrtc.telangana.gov.in/open-data
+transitfinder,Hyderabad Transit Finder,1,,,https://github.com/deekshithbangi/hyderabad-transit-finder
