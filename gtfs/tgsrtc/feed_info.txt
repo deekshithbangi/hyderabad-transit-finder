@@ -1,0 +1,2 @@
+feed_publisher_name,feed_publisher_url,feed_lang,feed_start_date,feed_end_date,feed_version,feed_contact_url
+Hyderabad Transit Finder,https://github.com/deekshithbangi/hyderabad-transit-finder,en,20260901,20310901,20260901,https://github.com/deekshithbangi/hyderabad-transit-finder/issues
